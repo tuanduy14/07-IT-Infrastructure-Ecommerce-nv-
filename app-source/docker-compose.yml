@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # CSDL PostgreSQL tách biệt
+  # Tầng dữ liệu: không mở cổng ra host
   db:
     image: postgres:15-alpine
     container_name: ecommerce_db
@@ -9,15 +9,15 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ecommerce_db
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
 
-  # Ứng dụng Web/API mẫu
-  app:
+  # Tầng ứng dụng: 2 instance giống nhau
+  app1:
     build: ./src
-    container_name: ecommerce_app
+    container_name: ecommerce_app1
     restart: always
     environment:
       - DB_HOST=db
@@ -25,10 +25,47 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=ecommerce_db
-    ports:
-      - "3000:3000"
+      - INSTANCE_NAME=app1
     depends_on:
       - db
+    networks:
+      - frontend
+      - backend
+
+  app2:
+    build: ./src
+    container_name: ecommerce_app2
+    restart: always
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ecommerce_db
+      - INSTANCE_NAME=app2
+    depends_on:
+      - db
+    networks:
+      - frontend
+      - backend
+
+  # Tầng Web/Load Balancer: cổng duy nhất mở ra ngoài
+  nginx:
+    image: nginx:alpine
+    container_name: ecommerce_lb
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+    networks:
+      - frontend
+
+networks:
+  frontend:
+  backend:
 
 volumes:
   db_data:

@@ -84,6 +84,11 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// API 3: Cho biết instance nào đang phục vụ (dùng để chứng minh cân bằng tải)
+app.get('/api/whoami', (req, res) => {
+  res.json({ instance: process.env.INSTANCE_NAME || 'unknown' });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`App đang chạy tại cổng ${PORT}`);

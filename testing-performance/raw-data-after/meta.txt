@@ -1,0 +1,32 @@
+﻿Label            : after
+Thoi diem bat dau : 2026-11-19 19:57:41
+May do            : Intel(R) Core(TM) i7-14700HX | 20 cores / 28 luong | RAM 15.7 GB
+Docker            : Docker version 28.0.4, build b8034c0
+Muc tai (ket noi) : 10, 50, 100
+Thoi luong/lan    : 30 giay | So lan lap: 3 | Nghi giua cac lan: 5 giay
+Tac vu            : read, write  (read = GET /api/products, write = POST /api/orders)
+Container dang chay:
+ecommerce_app1 (Up 2 hours)
+ecommerce_app2 (Up 2 hours)
+ecommerce_lb (Up 2 hours)
+ecommerce_db (Up 2 hours)
+nginx.conf dang dung:
+events {}
+
+http {
+  upstream app_cluster {
+    server app1:3000;
+    server app2:3000;
+  }
+
+  server {
+    listen 80;
+
+    location / {
+      proxy_pass http://app_cluster;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+  }
+}
+Ket thuc: 2026-11-19 20:09:00
