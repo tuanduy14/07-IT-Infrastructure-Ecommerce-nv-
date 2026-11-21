@@ -27,20 +27,19 @@ docker compose -f docker-compose.yml -f docker-compose.ftp.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.ftp.yml ps
 ```
 
-Kết quả đúng: 5 container `ecommerce_db`, `ecommerce_app1`, `ecommerce_app2`, `ecommerce_lb`, `ecommerce_ftp` ở trạng thái `Up`. Nếu còn container `ecommerce_app` từ bản cũ, xóa bằng `docker rm -f ecommerce_app`.
+Kết quả đúng: 5 container `ecommerce_db`, `ecommerce_app1`, `ecommerce_app2`, `ecommerce_lb`, `ecommerce_ftp` ở trạng thái `Up`.
 
 Nếu PowerShell chặn script: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
 
-Mô hình mạng: mở file `.pkt` trong `network-design/` bằng Packet Tracer.
 
 ## 3. Cách chạy kiểm thử
 
 **Cân bằng tải (KT1, dự phòng app):**
 ```powershell
-1..6 | ForEach-Object { curl.exe -s http://localhost:8080/api/whoami }   # app1/app2 xen kẽ
-docker stop ecommerce_app1
-curl.exe -s http://localhost:8080/api/products                          # vẫn trả dữ liệu từ app2
-docker start ecommerce_app1
+1..6 | ForEach-Object { curl.exe -s http://localhost:8080/api/whoami }   
+docker stop ecommerce_app1                                                  # app1/app2 xen kẽ
+curl.exe -s http://localhost:8080/api/products                          
+docker start ecommerce_app1                                                 # vẫn trả dữ liệu từ app2
 ```
 
 **Đọc danh mục và ghi đơn hàng (KT1):**
@@ -48,14 +47,8 @@ docker start ecommerce_app1
 curl.exe -s http://localhost:8080/api/products
 Invoke-RestMethod -Uri http://localhost:8080/api/orders -Method Post -ContentType "application/json" -Body '{"product_id":1,"quantity":2}'
 ```
-(Không dùng `\"` kiểu bash trong PowerShell vì JSON sẽ bị hỏng.)
 
-**Lỗi tầng dữ liệu (nút thắt ở DB):**
-```powershell
-docker pause ecommerce_db
-curl.exe -s -m 10 http://localhost:8080/api/products
-docker unpause ecommerce_db
-```
+
 
 **Sao lưu và phục hồi (KT3):**
 ```powershell
@@ -67,7 +60,6 @@ docker exec ecommerce_db psql -U postgres -d ecommerce_restore -c "SELECT * FROM
 ```
 Kiểm tra lỗi FTP: `docker stop ecommerce_ftp`, chạy lại `backup-db.ps1`, log phải ghi `FAILED` nhưng bản local vẫn còn.
 
-**Lịch tự động 23:00:** `.\register-backup-task.ps1`, chạy thử bằng `Start-ScheduledTask -TaskName "EcommerceDbBackup"`.
 
 **Đo tải (3 mức, trước/sau cải tiến):** xem `testing-performance/`. ........ (SV4 bổ sung công cụ, lệnh và điều kiện đo)
 
@@ -77,3 +69,37 @@ Kiểm tra lỗi FTP: `docker stop ecommerce_ftp`, chạy lại `backup-db.ps1`,
 - Cổng PostgreSQL không mở ra máy host; DB chỉ nằm trong mạng `backend`, nginx không cùng mạng với DB.
 - Mật khẩu `postgres` và tài khoản FTP `backup/backup123` là **dữ liệu giả cho demo**. Triển khai thực tế phải đổi và dùng biến môi trường hoặc secret.
 - `.gitignore` chặn `*.dump`, `*.backup`, `*.log`, `.env`. Log dùng làm bằng chứng được sao chép sang `.txt` trong thư mục `evidence-*`.
+
+
+sytax test:
+
+cd app-source
+
+docker compose -f docker-compose.yml -f docker-compose.ftp.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.ftp.yml ps
+
+docker compose ps
+
+1..6 | ForEach-Object { curl.exe -s http://localhost:8080/api/whoami }
+
+curl.exe -s http://localhost:8080/api/products
+ 
+docker stop ecommerce_app1
+
+docker start ecommerce_app1
+
+
+
+cd database-backup
+
+Invoke-RestMethod -Uri http://localhost:8080/api/orders -Method Post -ContentType "application/json" -Body '{"product_id":1,"quantity":91}'
+
+.\backup-db.ps1
+docker exec ecommerce_ftp ls -la /home/backup
+
+docker exec ecommerce_db psql -U postgres -d ecommerce_db -c "DELETE FROM orders WHERE quantity = 99;"
+
+.\restore-db.ps1
+ docker exec ecommerce_db psql -U postgres -d ecommerce_restore -c "SELECT * FROM orders;"
+
+ docker exec ecommerce_db psql -U postgres -d ecommerce_db -c "SELECT * FROM orders;"
